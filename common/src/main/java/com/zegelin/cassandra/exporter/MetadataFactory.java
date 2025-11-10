@@ -67,8 +67,16 @@ public abstract class MetadataFactory {
         return endpointLabelsCache.getUnchecked(endpoint);
     }
 
+    /**
+     * Parse endpoint string and return labels. Handles both plain IP addresses
+     * (Cassandra 4.0.x: "192.168.1.1") and IP_PORT format
+     * (Cassandra 4.1.x: "192.168.1.1_7000").
+     */
     public Labels endpointLabels(final String endpoint) {
-        return endpointLabels(InetAddresses.forString(endpoint));
+        final String ipAddress = endpoint.contains("_")
+                ? endpoint.substring(0, endpoint.lastIndexOf('_'))
+                : endpoint;
+        return endpointLabels(InetAddresses.forString(ipAddress));
     }
 
     public abstract String clusterName();

@@ -1,6 +1,6 @@
 package com.zegelin.cassandra.exporter.collector;
 
-import com.google.common.collect.ImmutableSet;
+import com.zegelin.cassandra.exporter.InetAddressAndPortCompat;
 import com.zegelin.cassandra.exporter.MetadataFactory;
 import com.zegelin.prometheus.domain.Labels;
 import com.zegelin.prometheus.domain.NumericMetric;
@@ -8,9 +8,6 @@ import org.apache.cassandra.gms.EndpointState;
 import org.apache.cassandra.gms.Gossiper;
 import org.apache.cassandra.locator.InetAddressAndPort;
 
-import java.net.InetAddress;
-import java.util.Map;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.zegelin.cassandra.exporter.CassandraObjectNames.GOSSIPER_MBEAN_NAME;
@@ -39,7 +36,7 @@ public class InternalGossiperMBeanMetricFamilyCollector extends GossiperMBeanMet
         for (InetAddressAndPort endpoint : gossiper.getEndpoints()) {
             final EndpointState state = gossiper.getEndpointStateForEndpoint(endpoint);
 
-            final Labels labels = metadataFactory.endpointLabels(endpoint.address);
+            final Labels labels = metadataFactory.endpointLabels(InetAddressAndPortCompat.getAddress(endpoint));
 
             generationNumberMetrics.add(new NumericMetric(labels, gossiper.getCurrentGenerationNumber(endpoint)));
             downtimeMetrics.add(new NumericMetric(labels, millisecondsToSeconds(gossiper.getEndpointDowntime(endpoint))));

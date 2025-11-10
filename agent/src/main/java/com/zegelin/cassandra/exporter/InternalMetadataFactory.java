@@ -7,11 +7,28 @@ import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.schema.Schema;
 
+import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.util.Optional;
 import java.util.Set;
 
 public class InternalMetadataFactory extends MetadataFactory {
+
+    /**
+     * Reflective accessor for Schema.getKeyspaces().
+     * In 4.0.x it returns Set&lt;String&gt;, in 4.1.x it returns Sets.SetView (which extends Set).
+     * The JVM method descriptor differs, so direct compiled calls fail across versions.
+     * Reflection bypasses the descriptor check.
+     */
+    private static final Method GET_KEYSPACES;
+
+    static {
+        try {
+            GET_KEYSPACES = Schema.class.getMethod("getKeyspaces");
+        } catch (final NoSuchMethodException e) {
+            throw new ExceptionInInitializerError("Schema.getKeyspaces() not found");
+        }
+    }
 
     private static Optional<org.apache.cassandra.schema.TableMetadata> getTableMetaData(final String keyspaceName, final String tableName) {
         return Optional.ofNullable(Schema.instance.getTableMetadata(keyspaceName, tableName));
@@ -58,9 +75,14 @@ public class InternalMetadataFactory extends MetadataFactory {
                 });
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public Set<String> keyspaces() {
-        return Schema.instance.getKeyspaces();
+        try {
+            return (Set<String>) GET_KEYSPACES.invoke(Schema.instance);
+        } catch (final ReflectiveOperationException e) {
+            throw new RuntimeException("Failed to invoke Schema.getKeyspaces()", e);
+        }
     }
 
     @Override
@@ -87,6 +109,6 @@ public class InternalMetadataFactory extends MetadataFactory {
 
     @Override
     public InetAddress localBroadcastAddress() {
-        return FBUtilities.getBroadcastAddressAndPort().address;
+        return InetAddressAndPortCompat.getAddress(FBUtilities.getBroadcastAddressAndPort());
     }
 }
